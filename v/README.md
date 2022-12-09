@@ -1,5 +1,7 @@
 # Written in V
 
+- [autoytdlp.vsh](#autoytdlpvsh)
+
 ## autoytdlp.vsh
 
 It runs `yt-dlp` in batch with opinionated config (at `~/.config/autoytdlp.json`).
