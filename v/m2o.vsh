@@ -62,8 +62,8 @@ fn extract_thumbnail(filename string) string {
 
 	jpeg := join_path(vtmp_dir(), 'cover.jpeg')
 	exec(
-		prog: 'convert'
-		args: [quoted_path(thumbnail), quoted_path(jpeg)]
+		prog: 'gm'
+		args: ['convert', quoted_path(thumbnail), quoted_path(jpeg)]
 	)
 
 	return jpeg
@@ -88,8 +88,7 @@ fn create_opus_metadata(filename string) !string {
 		return decoded.bytestr()
 	}
 
-	description := 'Cover Artwork'
-	mime := 'image/jpeg'
+	description, mime := 'Cover Artwork', 'image/jpeg'
 	metadata := x(3) + x(mime.len) + mime + x(description.len) + description + x(0) + x(0) + x(0) +
 		x(0) + x(thumbnail_str.len) + thumbnail_str
 	metadata_base64 := base64.encode_str(metadata)
@@ -112,10 +111,12 @@ fn convert(filename string) {
 	}
 
 	output := filename + '.opus'
-	args := ['-y', '-i', quoted_path(filename), '-i', quoted_path(metadata), '-map',
-		'0:${audio_stream.index}', '-map_metadata', '0', '-map_metadata', '1', '-codec', 'copy',
-		quoted_path(output)]
-	exec(prog: 'ffmpeg', args: args)
+	exec(
+		prog: 'ffmpeg'
+		args: ['-y', '-i', quoted_path(filename), '-i', quoted_path(metadata), '-map',
+			'0:${audio_stream.index}', '-map_metadata', '0', '-map_metadata', '1', '-codec', 'copy',
+			quoted_path(output)]
+	)
 }
 
 convert(os.args[1] or { panic('1 argument is required') })
