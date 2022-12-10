@@ -1,6 +1,6 @@
 #!/usr/bin/env -S v
 
-import arrays
+import common { exec }
 import encoding.base64
 import encoding.hex
 import json
@@ -17,32 +17,6 @@ struct FfprobeStream {
 		filename string
 		mimetype string
 	}
-}
-
-[params]
-struct ExecParams {
-	// the program name
-	prog    string
-	// program arguments
-	args    []string
-	// whether to panic on nonzero exit code
-	fail_ok bool
-}
-
-// exec runs `prog` with `args` while capturing stdout
-// exec will panic on nonzero exit code if fail_ok is false (the default)
-fn exec(e ExecParams) string {
-	// find_abs_.. will return an error if `prog` does not exists in PATH
-	bin := find_abs_path_of_executable(e.prog) or { panic('${e.prog} is not installed') }
-
-	// actual execution
-	cmds := arrays.concat([bin], ...e.args)
-	result := execute(cmds.join(' '))
-	if !e.fail_ok && result.exit_code != 0 {
-		panic(result.output)
-	}
-
-	return result.output
 }
 
 // ffprobe executes ffprobe command on `filename` and return the streams
@@ -100,7 +74,7 @@ fn create_metadata(filename string) !string {
 		f.close()
 	}
 
-	// The metada must starts with ;FFMETADATA, followed by a version number
+	// The metadata must starts with ;FFMETADATA followed by a version number
 	// ref: https://ffmpeg.org/ffmpeg-formats.html#Metadata-1
 	f.writeln(';FFMETADATA1')!
 	thumbnail := extract_thumbnail(filename)
