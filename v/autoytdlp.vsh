@@ -35,7 +35,7 @@ fn get_configs() []Config {
 	dir := config_dir() or { '.' }
 	data := read_file(join_path(dir, 'autoytdlp.json')) or { panic('config not found') }
 
-	return json.decode([]Config, data)
+	return json.decode([]Config, data) or { panic('config is invalid') }
 }
 
 fn main() {
