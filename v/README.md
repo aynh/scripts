@@ -7,7 +7,7 @@
 
 ## autoytdlp.vsh
 
-It runs `yt-dlp` in batch with opinionated config (at `~/.config/autoytdlp.json`).
+It runs `yt-dlp` in batch with config at `~/.config/autoytdlp.json` or `./autoytdlp.json`.
 
 Example config:
 
@@ -30,7 +30,7 @@ Example config:
 
 ## m2o.vsh (mkv-to-opus)
 
-Extracts opus from an mkv file created with `yt-dlp -f "ba+bv" --embed-thumbnail --embed-metadata --merge-output-format mkv ...`, including the thumbnail (as front cover) and other embedded metadata.
+Extracts opus from an mkv file created by `yt-dlp -f "ba+bv" --embed-thumbnail --embed-metadata --merge-output-format mkv ...`, it will preserve the embedded thumbnail (as front cover) and other metadatas.
 
 ### Dependencies
 
