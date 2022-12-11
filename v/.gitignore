@@ -1,6 +1,5 @@
 # Binaries for programs and plugins
-autoytdlp
-m2o
+___bin.*
 *.exe
 *.exe~
 *.so

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S v
+#!/usr/bin/env -S v -raw-vsh-tmp-prefix ___bin
 
 import common { exec }
 import encoding.base64
