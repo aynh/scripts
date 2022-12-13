@@ -7,6 +7,7 @@ import encoding.hex
 import json
 import os
 import rand
+import sync.pool
 
 struct FfprobeOutput {
 	streams []FfprobeStream
@@ -145,20 +146,29 @@ mut app := cli.Command{
 			if !exists(arg) {
 				panic('${arg} does not exists')
 			}
-
-			tmpdir := join_path(vtmp_dir(), rand.string(6))
-			mkdir_all(tmpdir)!
-			defer {
-				rmdir_all(tmpdir) or { panic('failed to delete tmpdir (${tmpdir}): ${err}') }
-			}
-
-			run(
-				path: arg
-				filename: file_name(arg)
-				outdir: cmd.flags.get_string('outdir')!
-				tmpdir: tmpdir
-			)
 		}
+
+		outdir := cmd.flags.get_string('outdir')!
+		mut pp := pool.new_pool_processor(
+			callback: fn [outdir] (mut pp pool.PoolProcessor, idx int, wid int) {
+				item := pp.get_item[string](idx)
+
+				tmpdir := join_path(vtmp_dir(), rand.string(6))
+				mkdir_all(tmpdir) or { panic('failed to create tmpdir (${tmpdir}): ${err}') }
+				defer {
+					rmdir_all(tmpdir) or { panic('failed to delete tmpdir (${tmpdir}): ${err}') }
+					println('success ${item}')
+				}
+
+				run(
+					path: item
+					filename: file_name(item)
+					outdir: outdir
+					tmpdir: tmpdir
+				)
+			}
+		)
+		pp.work_on_items(cmd.args)
 	}
 }
 
