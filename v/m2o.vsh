@@ -1,5 +1,6 @@
-#!/usr/bin/env -S v -raw-vsh-tmp-prefix ___bin
+#!/usr/bin/env -S v -raw-vsh-tmp-prefix ___bin run
 
+import cli
 import common { exec }
 import encoding.base64
 import encoding.hex
@@ -20,11 +21,11 @@ struct FfprobeStream {
 }
 
 // ffprobe executes ffprobe command on `filename` and return the streams
-fn ffprobe(filename string) []FfprobeStream {
+fn ffprobe(path string) []FfprobeStream {
 	output := exec(
 		prog: 'ffprobe'
 		// retrieve streams information in JSON format
-		args: ['-loglevel', 'error', '-show_streams', '-print_format', 'json', quoted_path(filename)]
+		args: ['-loglevel', 'error', '-show_streams', '-print_format', 'json', quoted_path(path)]
 	)
 
 	tmp := json.decode(FfprobeOutput, output) or { panic(err) }
@@ -33,10 +34,10 @@ fn ffprobe(filename string) []FfprobeStream {
 
 // extract_thumbnail extracts thumbnail (attachment with image MIME) from `filename`
 // and return the path to the extracted thumbnail
-fn extract_thumbnail(filename string) string {
-	streams := ffprobe(filename)
+fn extract_thumbnail(path string) string {
+	streams := ffprobe(path)
 	thumbnail_stream := streams.filter(it.tags.mimetype.starts_with('image'))[0] or {
-		panic('${filename} does not have thumbnail')
+		panic('${path} does not have thumbnail')
 	}
 
 	thumbnail := join_path(vtmp_dir(), thumbnail_stream.tags.filename)
@@ -44,7 +45,7 @@ fn extract_thumbnail(filename string) string {
 		prog: 'ffmpeg'
 		// this is the command that dumps the attachment
 		args: ['-y', '-dump_attachment:${thumbnail_stream.index}', quoted_path(thumbnail),
-			'-i', quoted_path(filename)]
+			'-i', quoted_path(path)]
 		// fail_ok because this will return non-zero code
 		// as it does not have output argument
 		fail_ok: true
@@ -67,9 +68,9 @@ fn extract_thumbnail(filename string) string {
 
 // create_metadata creates the necessary metadata for OPUS container to show a cover
 // (it's not as simple as cover embedding on M4A/MP3 container)
-fn create_metadata(filename string) !string {
-	path := join_path(vtmp_dir(), 'metadata.dat')
-	mut f := create(path)!
+fn create_metadata(path string) !string {
+	metadata_path := join_path(vtmp_dir(), 'metadata.dat')
+	mut f := create(metadata_path)!
 	defer {
 		f.close()
 	}
@@ -77,7 +78,7 @@ fn create_metadata(filename string) !string {
 	// The metadata must starts with ;FFMETADATA followed by a version number
 	// ref: https://ffmpeg.org/ffmpeg-formats.html#Metadata-1
 	f.writeln(';FFMETADATA1')!
-	thumbnail := extract_thumbnail(filename)
+	thumbnail := extract_thumbnail(path)
 	thumbnail_str := read_file(thumbnail)!
 	defer {
 		rm(thumbnail) or { panic(err) }
@@ -103,28 +104,46 @@ fn create_metadata(filename string) !string {
 	metadata_base64 := base64.encode_str(metadata)
 	f.writeln('METADATA_BLOCK_PICTURE=${metadata_base64}')!
 
-	return path
+	return metadata_path
 }
 
-// convert is the main function
-fn convert(filename string) {
-	streams := ffprobe(filename)
+// run is the main function
+fn run(path string) {
+	streams := ffprobe(path)
 	audio_stream := streams.filter(it.codec_name == 'opus')[0] or {
-		panic('${filename} does not have audio stream')
+		panic('${path} does not have audio stream')
 	}
 
-	metadata := create_metadata(filename) or { panic('failed to create metadata file: ${err}') }
+	metadata_path := create_metadata(path) or { panic('failed to create metadata file: ${err}') }
 	defer {
-		rm(metadata) or { panic(err) }
+		rm(metadata_path) or { panic(err) }
 	}
 
-	output := filename + '.opus'
+	output := path + '.opus'
 	exec(
 		prog: 'ffmpeg'
-		args: ['-y', '-i', quoted_path(filename), '-i', quoted_path(metadata), '-map',
+		args: ['-y', '-i', quoted_path(path), '-i', quoted_path(metadata_path), '-map',
 			'0:${audio_stream.index}', '-map_metadata', '0', '-map_metadata', '1', '-codec', 'copy',
 			quoted_path(output)]
 	)
 }
 
-convert(os.args[1] or { panic('1 argument is required') })
+mut app := cli.Command{
+	name: 'm2o.vsh'
+	disable_man: true
+	required_args: 1
+	usage: '<mkv_file>...'
+	posix_mode: true
+	execute: fn (cmd cli.Command) ! {
+		for arg in cmd.args {
+			if !exists(arg) {
+				panic('${arg} does not exists')
+			}
+
+			run(arg)
+		}
+	}
+}
+
+app.setup()
+app.parse(os.args)
