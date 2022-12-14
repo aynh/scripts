@@ -43,14 +43,13 @@ struct RunConfig {
 }
 
 // run is the main function
-fn run(c RunConfig) {
+fn run(c RunConfig) ! {
 	streams := ffprobe(c.path)
 	audio_stream := streams.filter(it.codec_name == 'opus')[0] or {
-		panic('${c.filename} does not have audio stream')
+		return error('${c.filename} does not have audio stream')
 	}
 
-	metadata_path := create_metadata(c) or { panic('failed to create metadata file: ${err}') }
-
+	metadata_path := create_metadata(c)!
 	outpath := join_path(c.outdir, c.filename.replace(file_ext(c.filename), '.opus'))
 	exec(
 		prog: 'ffmpeg'
@@ -64,7 +63,9 @@ fn run(c RunConfig) {
 // (it's not as simple as cover embedding on M4A/MP3 container)
 fn create_metadata(c RunConfig) !string {
 	metadata_path := join_path(c.tmpdir, 'metadata.dat')
-	mut metadata_file := create(metadata_path)!
+	mut metadata_file := create(metadata_path) or {
+		return error('failed to create metadata file: ${err}')
+	}
 	defer {
 		metadata_file.close()
 	}
@@ -72,7 +73,7 @@ fn create_metadata(c RunConfig) !string {
 	// The metadata must starts with ;FFMETADATA followed by a version number
 	// ref: https://ffmpeg.org/ffmpeg-formats.html#Metadata-1
 	metadata_file.writeln(';FFMETADATA1')!
-	thumbnail_path := extract_thumbnail(c)
+	thumbnail_path := extract_thumbnail(c)!
 	thumbnail_str := read_file(thumbnail_path)!
 
 	// x is a helper function that converts the input integer `i`
@@ -100,10 +101,10 @@ fn create_metadata(c RunConfig) !string {
 
 // extract_thumbnail extracts thumbnail (attachment with image MIME) from `path`
 // and return the path to the extracted thumbnail
-fn extract_thumbnail(c RunConfig) string {
+fn extract_thumbnail(c RunConfig) !string {
 	streams := ffprobe(c.path)
 	thumbnail_stream := streams.filter(it.tags.mimetype.starts_with('image'))[0] or {
-		panic('${c.filename} does not have thumbnail')
+		return error('${c.filename} does not have thumbnail')
 	}
 
 	thumbnail_path := join_path(c.tmpdir, thumbnail_stream.tags.filename)
@@ -165,7 +166,7 @@ mut app := cli.Command{
 					filename: file_name(item)
 					outdir: outdir
 					tmpdir: tmpdir
-				)
+				) or { panic(err) }
 			}
 		)
 		pp.work_on_items(cmd.args)
