@@ -22,8 +22,8 @@ struct FfprobeStream {
 	}
 }
 
-// ffprobe executes ffprobe command on `path` and return the streams
-fn ffprobe(path string) []FfprobeStream {
+// ffprobe_streams executes ffprobe command on `path` and return the streams
+fn ffprobe_streams(path string) []FfprobeStream {
 	output := exec(
 		prog: 'ffprobe'
 		// retrieve streams information in JSON format
@@ -36,16 +36,16 @@ fn ffprobe(path string) []FfprobeStream {
 
 [params]
 struct RunConfig {
-	path     string [required]
-	filename string [required]
-	tmpdir   string [required]
-	outdir   string [required]
+	path     string          [required]
+	streams  []FfprobeStream [required]
+	filename string          [required]
+	tmpdir   string          [required]
+	outdir   string          [required]
 }
 
 // run is the main function
 fn run(c RunConfig) ! {
-	streams := ffprobe(c.path)
-	audio_stream := streams.filter(it.codec_name == 'opus')[0] or {
+	audio_stream := c.streams.filter(it.codec_name == 'opus')[0] or {
 		return error('${c.filename} does not have audio stream')
 	}
 
@@ -102,8 +102,7 @@ fn create_metadata(c RunConfig) !string {
 // extract_thumbnail extracts thumbnail (attachment with image MIME) from `path`
 // and return the path to the extracted thumbnail
 fn extract_thumbnail(c RunConfig) !string {
-	streams := ffprobe(c.path)
-	thumbnail_stream := streams.filter(it.tags.mimetype.starts_with('image'))[0] or {
+	thumbnail_stream := c.streams.filter(it.tags.mimetype.starts_with('image'))[0] or {
 		return error('${c.filename} does not have thumbnail')
 	}
 
@@ -154,6 +153,8 @@ mut app := cli.Command{
 			callback: fn [outdir] (mut pp pool.PoolProcessor, idx int, wid int) {
 				item := pp.get_item[string](idx)
 
+				filename := file_name(item)
+				streams := ffprobe_streams(item)
 				tmpdir := join_path(vtmp_dir(), rand.string(6))
 				mkdir_all(tmpdir) or { panic('failed to create tmpdir (${tmpdir}): ${err}') }
 				defer {
@@ -163,7 +164,8 @@ mut app := cli.Command{
 
 				run(
 					path: item
-					filename: file_name(item)
+					streams: streams
+					filename: filename
 					outdir: outdir
 					tmpdir: tmpdir
 				) or { panic(err) }
