@@ -152,6 +152,7 @@ mut app := cli.Command{
 		mut pp := pool.new_pool_processor(
 			callback: fn [outdir] (mut pp pool.PoolProcessor, idx int, wid int) {
 				item := pp.get_item[string](idx)
+				println('converting ${item}')
 
 				filename := file_name(item)
 				streams := ffprobe_streams(item)
@@ -159,7 +160,7 @@ mut app := cli.Command{
 				mkdir_all(tmpdir) or { panic('failed to create tmpdir (${tmpdir}): ${err}') }
 				defer {
 					rmdir_all(tmpdir) or { panic('failed to delete tmpdir (${tmpdir}): ${err}') }
-					println('success ${item}')
+					println('converted  ${item}')
 				}
 
 				run(
