@@ -182,7 +182,7 @@ mut app := cli.Command{
 					filename: filename
 					outdir: outdir
 					tmpdir: tmpdir
-				) or { panic(err) }
+				) or { panic('failed to convert ${item}: ${err}') }
 			}
 		)
 		pp.work_on_items(cmd.args)
