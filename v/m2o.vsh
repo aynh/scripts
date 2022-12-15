@@ -7,6 +7,7 @@ import encoding.hex
 import json
 import os
 import rand
+import runtime
 import sync.pool
 
 struct FfprobeOutput {
@@ -126,6 +127,7 @@ fn extract_thumbnail(c RunConfig) !string {
 	return cover_path
 }
 
+default_max_jobs := runtime.nr_jobs().str()
 mut app := cli.Command{
 	name: 'm2o.vsh'
 	disable_man: true
@@ -140,6 +142,13 @@ mut app := cli.Command{
 			description: "Sets output directory [default: '.']"
 			default_value: ['.']
 		},
+		cli.Flag{
+			flag: cli.FlagType.int
+			name: 'max-jobs'
+			abbrev: 'J'
+			description: "Sets maximum of concurrently running jobs [default: '${default_max_jobs}']"
+			default_value: [default_max_jobs]
+		},
 	]
 	execute: fn (cmd cli.Command) ! {
 		for arg in cmd.args {
@@ -153,6 +162,7 @@ mut app := cli.Command{
 		ensure_folder_is_writable(outdir)!
 
 		mut pp := pool.new_pool_processor(
+			maxjobs: cmd.flags.get_int('max-jobs')!
 			callback: fn [outdir] (mut pp pool.PoolProcessor, idx int, wid int) {
 				item := pp.get_item[string](idx)
 				println('converting ${item}')
