@@ -149,6 +149,9 @@ mut app := cli.Command{
 		}
 
 		outdir := cmd.flags.get_string('outdir')!
+		mkdir_all(outdir)!
+		ensure_folder_is_writable(outdir)!
+
 		mut pp := pool.new_pool_processor(
 			callback: fn [outdir] (mut pp pool.PoolProcessor, idx int, wid int) {
 				item := pp.get_item[string](idx)
