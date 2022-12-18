@@ -39,18 +39,12 @@ fn (c Config) execute() {
 }
 
 fn get_configs() []Config {
-	dir := config_dir() or { '.' }
-	path := join_path(dir, 'autoytdlp.json')
-	data := if s := read_file(path) {
-		s
-		// the config may be in the current directory
-	} else if s := read_file('./autoytdlp.json') {
-		s
-	} else {
-		panic('config not found')
+	config := read_file('./autoytdlp.json') or {
+		path := join_path(config_dir() or { panic(err) }, 'autoytdlp.json')
+		read_file(path) or { panic('config not found') }
 	}
 
-	return json.decode([]Config, data) or { panic('config is invalid') }
+	return json.decode([]Config, config) or { panic('config is invalid') }
 }
 
 mut configs := get_configs()
