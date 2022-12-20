@@ -1,9 +1,9 @@
 #!/usr/bin/env -S v -raw-vsh-tmp-prefix ___bin run
 
 // ref: https://sar.informatik.hu-berlin.de/research/publications/SAR-PR-2006-05/SAR-PR-2006-05_.pdf
-
 import cli
-import hash.crc32
+import etc.crc32
+import io
 import os
 import strconv
 
@@ -46,6 +46,18 @@ fn parse_crc32(s string) ?u32 {
 	return none
 }
 
+fn crc32sum(file &os.File) !u32 {
+	mut buffer := []u8{len: 64 * 1024}
+	mut reader := io.new_buffered_reader(reader: file, cap: buffer.len)
+	mut sum := u32(0)
+	for {
+		read_len := reader.read(mut buffer) or { break }
+		sum = local_crc32.checksum(b: buffer[..read_len], init: sum)
+	}
+
+	return sum
+}
+
 mut app := cli.Command{
 	name: 'recrc32.vsh'
 	disable_man: true
@@ -61,7 +73,7 @@ mut app := cli.Command{
 		},
 	]
 	execute: fn (cmd cli.Command) ! {
-		path := cmd.args[0]
+		path := norm_path(cmd.args[0])
 		if !exists(path) {
 			return error('path `${path}` does not exists')
 		} else if !is_file(path) {
@@ -73,23 +85,23 @@ mut app := cli.Command{
 			return error('`${target_crc_str}` is not a valid CRC32 hash')
 		}
 
-		mut file_bytes := read_bytes(path)!
-		old_crc := local_crc32.checksum(file_bytes)
+		mut file := open_file(path, 'rb+')!
+		defer {
+			file.close()
+		}
 
+		old_crc := crc32sum(file)!
 		if old_crc == target_crc {
 			return error('file `${path}` already has `${target_crc:08X}` CRC32 hash')
 		}
 
 		new_bytes := calculate_new_bytes(old_crc, target_crc)
 		if cmd.flags.get_bool('execute')! {
-			mut f := open_append(path)!
-			defer {
-				f.close()
-			}
-			f.write(new_bytes) or { return error('failed to patch file `${path}`') }
+			file.seek(0, os.SeekMode.end)! // seek to end of file
+			file.write(new_bytes) or { return error('failed to write patch to file `${path}`') }
+			eprintln('successfully patched `${path}` (${target_crc:08X})')
 		} else {
-			file_bytes << new_bytes
-			new_crc := local_crc32.checksum(file_bytes)
+			new_crc := local_crc32.checksum(b: new_bytes, init: old_crc)
 			if new_crc == target_crc {
 				eprintln('patched in-memory file have the correct CRC32 hash (${target_crc:08X})')
 				eprintln('pass -x or --execute command line switch to patch the file')
