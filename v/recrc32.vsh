@@ -62,7 +62,7 @@ mut app := cli.Command{
 	name: 'recrc32.vsh'
 	disable_man: true
 	required_args: 2
-	usage: '<file> <target_crc32>'
+	usage: '<file> <target_crc>'
 	posix_mode: true
 	flags: [
 		cli.Flag{
@@ -90,24 +90,26 @@ mut app := cli.Command{
 			file.close()
 		}
 
-		old_crc := crc32sum(file)!
-		if old_crc == target_crc {
+		file_crc := crc32sum(file)!
+		if file_crc == target_crc {
 			return error('file `${path}` already has `${target_crc:08X}` CRC32 hash')
 		}
 
-		new_bytes := calculate_new_bytes(old_crc, target_crc)
+		new_bytes := calculate_new_bytes(file_crc, target_crc)
+		new_crc := local_crc32.checksum(b: new_bytes, init: file_crc)
+		if new_crc != target_crc {
+			eprintln('patched in-memory file got incorrect CRC32 hash')
+			eprintln('expected: `${target_crc:08X}`, got: `${new_crc:08X}`')
+			exit(1)
+		}
+
 		if cmd.flags.get_bool('execute')! {
 			file.seek(0, os.SeekMode.end)! // seek to end of file
 			file.write(new_bytes) or { return error('failed to write patch to file `${path}`') }
-			eprintln('successfully patched `${path}` (${target_crc:08X})')
+			eprintln('successfully patched `${path}` `${new_crc:08X}`')
 		} else {
-			new_crc := local_crc32.checksum(b: new_bytes, init: old_crc)
-			if new_crc == target_crc {
-				eprintln('patched in-memory file have the correct CRC32 hash (${target_crc:08X})')
-				eprintln('pass -x or --execute command line switch to patch the file')
-			} else {
-				return error("patched in-memory file doesn't have the correct CRC32 hash (${target_crc:08X})")
-			}
+			eprintln('patched in-memory file got the correct CRC32 hash `${new_crc:08X}`')
+			eprintln('pass -x or --execute command line switch to patch the file')
 		}
 	}
 }
