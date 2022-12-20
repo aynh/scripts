@@ -4,6 +4,7 @@
   - [Dependencies:](#dependencies)
 - [m2o.vsh (mkv-to-opus)](#m2ovsh-mkv-to-opus)
   - [Dependencies](#dependencies-1)
+- [recrc32.vsh](#recrc32vsh)
 
 ## autoytdlp.vsh
 
@@ -36,3 +37,7 @@ Extracts opus from an mkv file created by `yt-dlp -f "ba+bv" --embed-thumbnail -
 
 - [ffmpeg](https://ffmpeg.org/download.html)
 - [graphicsmagick](http://www.graphicsmagick.org/download.html)
+
+## recrc32.vsh
+
+Changes CRC32 hash of a file, `dry-run` by default.
