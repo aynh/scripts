@@ -46,7 +46,7 @@ fn parse_crc32(s string) ?u32 {
 	return none
 }
 
-fn crc32sum(file &os.File) !u32 {
+fn crc32sum(file &os.File) u32 {
 	mut buffer := []u8{len: 64 * 1024}
 	mut reader := io.new_buffered_reader(reader: file, cap: buffer.len)
 	mut sum := u32(0)
@@ -90,7 +90,7 @@ mut app := cli.Command{
 			file.close()
 		}
 
-		file_crc := crc32sum(file)!
+		file_crc := crc32sum(file)
 		if file_crc == target_crc {
 			return error('file `${path}` already has `${target_crc:08X}` CRC32 hash')
 		}
